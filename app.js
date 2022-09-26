@@ -1,5 +1,6 @@
 import express from "express";
 import bodyParser from "body-parser";
+import mongoose from "mongoose";
 const app = express();
 app.set('view engine', 'ejs');
 app.use(bodyParser.urlencoded({extended: true}));
@@ -8,70 +9,101 @@ import  { dirname } from 'path';
 const __fileUrl = fileURLToPath(import.meta.url);
 const __dirname = dirname(__fileUrl);
 import * as date from './date.js';
-var activityEnteredList= ["eat food","do homework", "go shopping"];
-let workList = [];
+// var activityEnteredList= ["eat food","do homework", "go shopping"];
+// let workList = [];
 let day = date.getDate();
-
+mongoose.connect("mongodb://localhost:27017/todolistDB",{useNewUrlParser:true});
 app.use(express.static("public"));
-// app.get("/",function(req,res){
-//     var day = "";
-// var today = new Date();
-// var currentDate =  today.getDay();
 
-// if(currentDate === 7)
-// day = "Sunday";
-// else if (currentDate === 6)
-// day = "Saturday";
-// else if (currentDate === 5)
-// day = "Friday";
-// else if (currentDate === 4)
-// day = "Thursday";
-// else if (currentDate === 3)
-// day = "Wednesday";
-// else if (currentDate === 2)
-// day = "Tuesday";
-// else 
-// day ="Monday";
-//     res.render("list",{kindOfDay : day});
-// })
+// schema or model of the data
+const itemsSchema = {
+    name: String
+};
+// Declaring name and adding the schema 
+const Item = mongoose.model("Item",itemsSchema);
 
+const listSchema = {
+    name: String, 
+    items: [itemsSchema]
+}
+const List = mongoose.model("List",listSchema);
+
+const defaultList = [Item({name: "Welcome to my todolist"}),Item({name:"Hit + button to add new activity"}),Item({name:"<-- Hit this to delete an item"})];
+
+function addItems (){
+Item.insertMany(defaultList,function(err){
+    if(err){
+        console.log(err);
+    }else{
+        console.log("Added successfully");
+    }
+
+})
+}
 app.get("/",function(req,res){
+    Item.find(function(err, items){
+        if(items.length==0)
+        {
+            addItems();
+            res.redirect("/");
+        }
+        else 
+        {
+        res.render("list",{kindOfDay : day, activity : items}); }
     
-    // var today = new Date();
-
-    // var options = {
-    //     weekday: "long",
-    //     day: "numeric",
-    //     month: "long"
-    // };
-
-  //  var day = today.toLocaleDateString("en-PK",options);  
-    res.render("list",{kindOfDay : day, activity : activityEnteredList}); 
+    })
+  
 })
 
+app.get("/:customListName",function(req,res){
+    const customName = req.params.customListName;
+    List.findOne({name:customName},function(err, foundList){
+if(!err){
+    if(!foundList)
+    {
+        const list = new List( {
+            name: customName,
+            items : defaultList,
+        
+    })
+    list.save();
+    res.redirect("/"+ customName);
+    
+    }else {
+        res.render("list", 
+        {kindOfDay: foundList.name, activity: foundList.items })
+    }
+}
+    })
+
+})
 app.get("/about",function(req,res){
     res.render('about');
 })
+
 app.post('/',function(req,res){
-    console.log(req.body);
+    // console.log(req.body);
  var  activityEntered = req.body.activity;
- if(activityEntered ==""){return;}
- if(req.body.list === "Work")
- {
-    
-    workList.push(activityEntered);
-    res.redirect("/work");
- }
+ if(activityEntered ==""){res.redirect("/");return;}
  else{
- 
-    activityEnteredList.push(activityEntered);
+ const item = Item ({name: activityEntered});
+ item.save();
+    // activityEnteredList.push(activityEntered);
     res.redirect("/");
  }
 
   
 })
-app.get('/Work',function(req,res){
-   
-    res.render("list",{kindOfDay : "Work", activity : workList});
+app.post("/delete",function(req,res){
+    const selectedItem = req.body.checkbox;
+    Item.findByIdAndRemove(selectedItem,function(err){
+            if(err)
+            {console.log('something went wrong');}
+                else{
+    res.redirect("/");
+}
+    })
+
 })
+
 app.listen(process.env.PORT || 3000, function(){console.log("Server has been Started");});
