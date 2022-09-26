@@ -82,27 +82,56 @@ app.get("/about",function(req,res){
 })
 
 app.post('/',function(req,res){
-    // console.log(req.body);
+   
  var  activityEntered = req.body.activity;
- if(activityEntered ==""){res.redirect("/");return;}
- else{
+ var listName = req.body.list;
  const item = Item ({name: activityEntered});
- item.save();
-    // activityEnteredList.push(activityEntered);
-    res.redirect("/");
+ if(activityEntered =="")
+ {
+    res.redirect("/");return;
+  }
+ else{
+    if(listName === day){
+        item.save();
+        res.redirect("/");
+    }
+    else {
+        List.findOne({name:listName},function(err,foundList){
+            foundList.items.push(item);
+            foundList.save();
+            res.redirect("/" + listName);
+        })
+    }
+ 
  }
 
   
 })
 app.post("/delete",function(req,res){
     const selectedItem = req.body.checkbox;
-    Item.findByIdAndRemove(selectedItem,function(err){
+    const listName = req.body.listName;
+
+    if (listName === day ){
+        Item.findByIdAndRemove(selectedItem,function(err){
             if(err)
-            {console.log('something went wrong');}
-                else{
-    res.redirect("/");
-}
-    })
+            {
+                console.log('something went wrong');
+            }
+            else
+                {
+                    res.redirect("/");
+                }
+    }) }
+    else
+    {
+        List.findOneAndUpdate({name: listName},{$pull :{items:{_id:selectedItem}}},function(err,foundList){
+            if(!err)
+            {
+                res.redirect("/"+listName); 
+            }
+        })
+    }
+   
 
 })
 
